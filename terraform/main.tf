@@ -97,18 +97,7 @@ resource "aws_instance" "ec2_instance" {
   key_name            = aws_key_pair.my_key.key_name # Reference the key pair
   security_groups     = [aws_security_group.ec2_sg.name] # Attach security group
 
-  user_data           = <<-EOF
-                        #!/bin/bash
-                        apt-get update
-                        apt-get install vim
-                        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-                        \. "$HOME/.nvm/nvm.sh"
-                        nvm install 22
-                        mkdir shopla
-                        cd shopla
-                        npm init -y
-                        npm install @evershop/evershop
-                        EOF
+  user_data           = file("install.sh")
 
   tags = {
     Name = "Shopla"
