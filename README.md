@@ -8,6 +8,9 @@ Prerequisites:
 
 Start up instructions: 
 ```
+Create RSA key
+1. ssh-keygen -t rsa -b 4096
+
 Start docker compose in main directory
 1. locate directory: /G2T8-CME-Shopla
 2. docker compose up
