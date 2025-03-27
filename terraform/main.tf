@@ -12,9 +12,10 @@ provider "aws" {
   endpoints {
     ec2             = "http://localhost:4566"
     rds             = "http://localhost:4566"
+    iam             = "http://localhost:4566"
   }
 
-  endpoint_url = "http://localhost:4566"
+  # endpoint_url = "http://localhost:4566"  # Commented out as endpoints block is the preferred method
 }
 
 resource "aws_key_pair" "my_key" {
@@ -96,6 +97,7 @@ resource "aws_instance" "ec2_instance" {
   instance_type       = "t3.nano"
   key_name            = aws_key_pair.my_key.key_name # Reference the key pair
   security_groups     = [aws_security_group.ec2_sg.name] # Attach security group
+  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name # Attach IAM instance profile
 
   user_data           = file("install.sh")
 
