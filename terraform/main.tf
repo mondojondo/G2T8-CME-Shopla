@@ -26,6 +26,118 @@ data "aws_vpc" "default" {
   default = true
 }
 
+# Create a VPC
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  
+  tags = {
+    Name = "LocalStack VPC"
+  }
+}
+
+# Create public subnets
+resource "aws_subnet" "public_1" {
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.0.1.0/24"
+
+  tags = {
+    Name = "Public Subnet 1"
+  }
+}
+
+resource "aws_subnet" "public_2" {
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.0.2.0/24"
+
+  tags = {
+    Name = "Public Subnet 2"
+  }
+}
+
+# Create private subnets
+resource "aws_subnet" "private_1" {
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.0.3.0/24"
+
+  tags = {
+    Name = "Private Subnet 1"
+  }
+}
+
+resource "aws_subnet" "private_2" {
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.0.4.0/24"
+
+  tags = {
+    Name = "Private Subnet 2"
+  }
+}
+
+resource "aws_nat_gateway" "gw1" {
+  allocation_id = aws_eip.nat1.id
+  subnet_id     = aws_subnet.public_1.id
+}
+
+resource "aws_nat_gateway" "gw2" {
+  allocation_id = aws_eip.nat2.id
+  subnet_id     = aws_subnet.public_2.id
+}
+
+resource "aws_eip" "nat1" {
+  domain = "vpc"
+
+  tags = {
+    Name = "NAT Gateway EIP 1"
+  }
+}
+
+resource "aws_eip" "nat2" {
+  domain = "vpc"
+
+  tags = {
+    Name = "NAT Gateway EIP 2"
+  }
+}
+
+resource "aws_lb_target_group" "example" {
+  name     = "example-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+
+  health_check {
+    path                = "/"
+    healthy_threshold   = 2
+    unhealthy_threshold = 10
+  }
+}
+
+resource "aws_launch_configuration" "example" {
+  name_prefix   = "example"
+  image_id      = "ami-df5de72bdb3b"
+  instance_type = "t3.micro"
+  
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_autoscaling_group" "example" {
+  name                = "example-asg"
+  desired_capacity    = 2
+  max_size            = 4
+  min_size            = 1
+  launch_configuration = aws_launch_configuration.example.name
+  target_group_arns   = [aws_lb_target_group.example.arn]
+  vpc_zone_identifier = [aws_subnet.private_1.id, aws_subnet.private_2.id]
+
+  tag {
+    key                 = "Name"
+    value               = "Private-EC2"
+    propagate_at_launch = true
+  }
+}
+
 resource "aws_default_security_group" "default" {
   vpc_id = data.aws_vpc.default.id
 
@@ -44,38 +156,36 @@ resource "aws_default_security_group" "default" {
   }
 }
 
+# Security Group for EC2 Instances
 resource "aws_security_group" "ec2_sg" {
-  name        = "allow-http"
-  description = "Allow HTTP traffic and outbound to RDS"
+  name        = "ec2-private-sg"
+  description = "Allow internal traffic and NAT Gateway access"
+  vpc_id      = aws_vpc.main.id
 
   ingress {
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Allow HTTP traffic on port 3000 from any IP
+    cidr_blocks = ["10.0.0.0/16"] # Adjust based on your VPC CIDR block
   }
 
   egress {
-    from_port   = 4510
-    to_port     = 4510
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Allow outbound traffic to RDS (adjust to your VPC CIDR)
-  }
-  
-  tags = {
-    Name = "EC2-SG"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
 resource "aws_security_group" "rds_sg" {
-  name        = "rds-security-group"
+  name        = "rds-private-sg"
   description = "Security group for RDS instance allowing EC2 access"
 
   ingress {
     from_port   = 4510
     to_port     = 4510
     protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"] # Allow traffic from any IP (adjust to your VPC CIDR)
+      cidr_blocks = ["10.0.0.0/16"] # Allow traffic from any IP (adjust to your VPC CIDR)
   }
   
   # It's also good practice to allow outbound traffic
@@ -92,33 +202,44 @@ resource "aws_security_group" "rds_sg" {
 }
 
 resource "aws_instance" "ec2_instance" {
-  ami                 = "ami-df5de72bdb3b"
-  instance_type       = "t3.nano"
-  key_name            = aws_key_pair.my_key.key_name # Reference the key pair
-  security_groups     = [aws_security_group.ec2_sg.name] # Attach security group
+  ami                     = "ami-df5de72bdb3b"
+  instance_type           = "t3.nano"
+  key_name                = aws_key_pair.my_key.key_name # Reference the key pair
+  vpc_security_group_ids  = [aws_security_group.ec2_sg.id]
 
-  user_data           = file("install.sh")
+  user_data               = file("install.sh")
 
   tags = {
     Name = "Shopla"
   }
 }
 
-resource "aws_db_instance" "rds_instance" {
-  allocated_storage    = 20                    # Storage size in GB
-  engine               = "postgres"            # Database engine
-  engine_version       = "13.4"                # PostgreSQL version
-  instance_class       = "db.t3.micro"         # Instance type
-  identifier           = "postgres-instance"   # Unique name for the instance
-  username             = "shopla"               # DB master username
-  password             = "123456" # DB master password
-  db_name              = "shopla"           # Initial database name
-  publicly_accessible  = true                 # Set to true if you want public access
-  skip_final_snapshot  = true                  # Skips the final snapshot upon deletion
-  vpc_security_group_ids = [aws_security_group.rds_sg.id]  # Reference your security group
-  port                 = 4510  # Specify your desired port here
+resource "aws_rds_cluster" "aurora_cluster" {
+  cluster_identifier      = "aurora-cluster-shopla"
+  engine                  = "aurora-postgresql"
+  engine_version          = "13.8"
+  database_name           = "shopla"
+  master_username         = "shopla"
+  master_password         = "123456"
+  port                    = 4510
+  vpc_security_group_ids  = [aws_security_group.rds_sg.id]
+  skip_final_snapshot     = true
 
   tags = {
     Name = "ShoplaDB"
+  }
+}
+
+resource "aws_rds_cluster_instance" "aurora_instance" {
+  count               = 1
+  identifier          = "aurora-instance-shopla-${count.index}"
+  cluster_identifier  = aws_rds_cluster.aurora_cluster.id
+  instance_class      = "db.t3.medium"
+  engine              = aws_rds_cluster.aurora_cluster.engine
+  engine_version      = aws_rds_cluster.aurora_cluster.engine_version
+  publicly_accessible = true
+
+  tags = {
+    Name = "ShoplaDB-Instance"
   }
 }

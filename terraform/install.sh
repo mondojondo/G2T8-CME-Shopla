@@ -27,3 +27,5 @@ fi
 
 echo "Starting the application..."
 npm run start
+
+npm run user:changePassword -- --email "admin@admin.com" --password "password123" --name "admin"
