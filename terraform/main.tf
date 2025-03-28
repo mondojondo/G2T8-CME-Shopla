@@ -112,32 +112,6 @@ resource "aws_lb_target_group" "example" {
   }
 }
 
-resource "aws_launch_configuration" "example" {
-  name_prefix   = "example"
-  image_id      = "ami-df5de72bdb3b"
-  instance_type = "t3.micro"
-  
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "aws_autoscaling_group" "example" {
-  name                = "example-asg"
-  desired_capacity    = 2
-  max_size            = 4
-  min_size            = 1
-  launch_configuration = aws_launch_configuration.example.name
-  target_group_arns   = [aws_lb_target_group.example.arn]
-  vpc_zone_identifier = [aws_subnet.private_1.id, aws_subnet.private_2.id]
-
-  tag {
-    key                 = "Name"
-    value               = "Private-EC2"
-    propagate_at_launch = true
-  }
-}
-
 resource "aws_default_security_group" "default" {
   vpc_id = data.aws_vpc.default.id
 
@@ -188,7 +162,6 @@ resource "aws_security_group" "rds_sg" {
       cidr_blocks = ["10.0.0.0/16"] # Allow traffic from any IP (adjust to your VPC CIDR)
   }
   
-  # It's also good practice to allow outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
@@ -198,6 +171,46 @@ resource "aws_security_group" "rds_sg" {
 
   tags = {
     Name = "RDS-SG"
+  }
+}
+
+# Autoscaling is only able to mock ec2 instance but not an docker wc2 container
+resource "aws_launch_template" "ec2_template" {
+  name_prefix = "lt-"
+  
+  image_id = "ami-df5de72bdb3b"
+  instance_type = "t3.nano"
+  key_name = aws_key_pair.my_key.key_name
+  
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+  
+  user_data = file("install.sh")
+  
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "Shopla"
+    }
+  }
+}
+
+resource "aws_autoscaling_group" "example" {
+  name                = "example-asg"
+  desired_capacity    = 2
+  max_size            = 4
+  min_size            = 1
+  target_group_arns   = [aws_lb_target_group.example.arn]
+  vpc_zone_identifier = [aws_subnet.private_1.id, aws_subnet.private_2.id]
+
+  launch_template {
+    id      = aws_launch_template.ec2_template.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "Private-EC2"
+    propagate_at_launch = true
   }
 }
 
