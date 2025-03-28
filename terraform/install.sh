@@ -27,8 +27,3 @@ fi
 
 echo "Starting the application..."
 npm run start
-
-nvm install --lts
-nvm use --lts
-
-npm run user:create -- --email "admin@admin.com" --password "password123" --name "admin"
