@@ -1,8 +1,23 @@
-provider "aws" {
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.93.0"  # Specify your AWS provider version
+      configuration_aliases = [
+        aws.ap_southeast_1,
+        aws.ap_east_1
+      ]
+    }
+  }
+}
 
+# Configure multiple AWS providers for different regions
+provider "aws" {
+  alias = "ap_southeast_1"
+  
   access_key                  = "mock_access_key"
   secret_key                  = "mock_secret_key"
-  region                      = "us-east-1"
+  region                      = "ap-southeast-1"
 
   s3_use_path_style           = true
   skip_credentials_validation = true
@@ -10,115 +25,81 @@ provider "aws" {
   skip_requesting_account_id  = true
 
   endpoints {
-    ec2             = "http://localhost:4566"
-    rds             = "http://localhost:4566"
+    ec2 = "http://localhost:4566"
+    rds = "http://localhost:4566"
   }
 
-  endpoint_url = "http://localhost:4566"
-}
-
-resource "aws_key_pair" "my_key" {
-  key_name   = "my-key"
-  public_key = file("~/.ssh/id_rsa.pub")
-}
-
-data "aws_vpc" "default" {
-  default = true
-}
-
-resource "aws_default_security_group" "default" {
-  vpc_id = data.aws_vpc.default.id
-
-  ingress {
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  ignore_tags {
+    key_prefixes = ["aws:"]
   }
 }
 
-resource "aws_security_group" "ec2_sg" {
-  name        = "allow-http"
-  description = "Allow HTTP traffic and outbound to RDS"
+provider "aws" {
+  alias = "ap_east_1"
+  
+  access_key                  = "mock_access_key"
+  secret_key                  = "mock_secret_key"
+  region                      = "ap-east-1"
 
-  ingress {
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Allow HTTP traffic on port 3000 from any IP
+  s3_use_path_style           = true
+  skip_credentials_validation = true
+  skip_metadata_api_check     = true
+  skip_requesting_account_id  = true
+
+  endpoints {
+    ec2 = "http://localhost:4566"
+    rds = "http://localhost:4566"
   }
 
-  egress {
-    from_port   = 4510
-    to_port     = 4510
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Allow outbound traffic to RDS (adjust to your VPC CIDR)
+  ignore_tags {
+    key_prefixes = ["aws:"]
+  }
+}
+
+# Override default VPCs with unique CIDRs per region
+resource "aws_vpc" "singapore" {
+  provider   = aws.ap_southeast_1
+  cidr_block = "10.0.0.0/16"  # Unique to ap-southeast-1
+  tags = {
+    Name = "singapore-vpc"
+  }
+}
+
+resource "aws_vpc" "hongkong" {
+  provider   = aws.ap_east_1
+  cidr_block = "10.1.0.0/16"  # Unique to ap-east-1
+  tags = {
+    Name = "hongkong-vpc"
+  }
+}
+
+resource "aws_key_pair" "shared_key" {
+  key_name   = "my-global-key"  # Same name works in LocalStack
+  public_key = file("~/.ssh/id_rsa.pub") 
+}
+
+# Southeast Asia (Singapore) Region Resources
+module "ap_southeast_1" {
+  source = "./modules/region"
+  providers = {
+    aws = aws.ap_southeast_1  
   }
   
-  tags = {
-    Name = "EC2-SG"
-  }
+  region_name     = "ap-southeast-1"
+  key_name        = aws_key_pair.shared_key.key_name 
+  vpc_id          = aws_vpc.singapore.id
+  vpc_cidr_block  = aws_vpc.singapore.cidr_block
 }
 
-resource "aws_security_group" "rds_sg" {
-  name        = "rds-security-group"
-  description = "Security group for RDS instance allowing EC2 access"
-
-  ingress {
-    from_port   = 4510
-    to_port     = 4510
-    protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"] # Allow traffic from any IP (adjust to your VPC CIDR)
+# East Asia (Hong Kong) Region Resources
+module "ap_east_1" {
+  source = "./modules/region"
+  providers = {
+    aws = aws.ap_east_1 
   }
   
-  # It's also good practice to allow outbound traffic
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "RDS-SG"
-  }
-}
-
-resource "aws_instance" "ec2_instance" {
-  ami                 = "ami-df5de72bdb3b"
-  instance_type       = "t3.nano"
-  key_name            = aws_key_pair.my_key.key_name # Reference the key pair
-  security_groups     = [aws_security_group.ec2_sg.name] # Attach security group
-
-  user_data           = file("install.sh")
-
-  tags = {
-    Name = "Shopla"
-  }
-}
-
-resource "aws_db_instance" "rds_instance" {
-  allocated_storage    = 20                    # Storage size in GB
-  engine               = "postgres"            # Database engine
-  engine_version       = "13.4"                # PostgreSQL version
-  instance_class       = "db.t3.micro"         # Instance type
-  identifier           = "postgres-instance"   # Unique name for the instance
-  username             = "shopla"               # DB master username
-  password             = "123456" # DB master password
-  db_name              = "shopla"           # Initial database name
-  publicly_accessible  = true                 # Set to true if you want public access
-  skip_final_snapshot  = true                  # Skips the final snapshot upon deletion
-  vpc_security_group_ids = [aws_security_group.rds_sg.id]  # Reference your security group
-  port                 = 4510  # Specify your desired port here
-
-  tags = {
-    Name = "ShoplaDB"
-  }
+  region_name     = "ap-east-1"
+  key_name        = aws_key_pair.shared_key.key_name 
+  vpc_id          = aws_vpc.hongkong.id
+  vpc_cidr_block  = aws_vpc.hongkong.cidr_block
 }
