@@ -15,7 +15,7 @@ provider "aws" {
     iam             = "http://localhost:4566"
   }
 
-  endpoint_url = "http://localhost:4566"  
+  endpoint_url = "http://localhost:4566"
 }
 
 resource "aws_key_pair" "my_key" {
