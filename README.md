@@ -32,3 +32,4 @@ SSH into EC2 instance
 1. ssh-keygen -t rsa -b 4096
 2. ssh -i ~/.ssh/id_rsa root@127.0.0.1
 ```
+lear task description f
