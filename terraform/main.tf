@@ -12,6 +12,7 @@ provider "aws" {
   endpoints {
     ec2             = "http://localhost:4566"
     rds             = "http://localhost:4566"
+    iam             = "http://localhost:4566"
   }
 
   endpoint_url = "http://localhost:4566"
