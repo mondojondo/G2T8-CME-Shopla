@@ -8,7 +8,8 @@ services:
       - "127.0.0.1:443:443"              # LocalStack HTTPS Gateway (Pro)
     environment:
       # Activate LocalStack Pro
-      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}  # Read from .env
+      #- LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}  # Read from .env
+      - LOCALSTACK_AUTH_TOKEN="ls-jUvEGiwU-jeKA-Quti-8986-KeqeSeKi058c"
       - DEBUG=${DEBUG:-0}
       - PERSISTENCE=${PERSISTENCE:-0}
     volumes:
