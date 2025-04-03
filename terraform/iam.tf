@@ -32,10 +32,10 @@ resource "aws_iam_policy" "administrator_policy" {
   })
 }
 
-# Developer Policy - EC2, S3, RDS Read/Write
+# Developer Policy - EC2, S3, Aurora Read/Write
 resource "aws_iam_policy" "developer_policy" {
   name        = "developer-policy"
-  description = "EC2, S3, RDS read/write access for developers"
+  description = "EC2, S3, Aurora read/write access for developers"
   
   policy = jsonencode({
     Version = "2012-10-17"
@@ -76,7 +76,21 @@ resource "aws_iam_policy" "developer_policy" {
           "rds:CreateDBSnapshot",
           "rds:DeleteDBSnapshot",
           "rds:RestoreDBInstanceFromDBSnapshot",
-          "rds:RebootDBInstance"
+          "rds:RebootDBInstance",
+          "rds:CreateDBCluster",
+          "rds:ModifyDBCluster", 
+          "rds:DeleteDBCluster",
+          "rds:AddTagsToResource",
+          "rds:PromoteReadReplica",
+          "rds:CreateDBClusterEndpoint",
+          "rds:RebootDBInstance",
+          "rds:CreateGlobalCluster",
+          "rds:DeleteGlobalCluster",
+          "rds:ModifyGlobalCluster",
+          "rds:AddSourceIdentifierToSubscription",
+          "rds:CreateEventSubscription",
+          "rds:CrossRegionCommunication",
+          "rds:ModifyDBClusterParameterGroup"
         ]
         Resource = "*"
       }
@@ -84,10 +98,10 @@ resource "aws_iam_policy" "developer_policy" {
   })
 }
 
-# Operator Policy - CloudWatch, EC2 Read-Only, RDS Read-Only
+# Operator Policy - CloudWatch, EC2 Read-Only, Aurora Read-Only
 resource "aws_iam_policy" "operator_policy" {
   name        = "operator-policy"
-  description = "CloudWatch, EC2 read-only, RDS read-only access for operators"
+  description = "CloudWatch, EC2 read-only, Aurora read-only access for operators"
   
   policy = jsonencode({
     Version = "2012-10-17"
@@ -111,7 +125,13 @@ resource "aws_iam_policy" "operator_policy" {
       {
         Effect   = "Allow"
         Action   = [
-          "rds:Describe*"
+          "rds:Describe*",
+          "rds:DescribeDBClusters",
+          "rds:DescribeDBClusterEndpoints",
+          "rds:DescribeGlobalClusters",
+          "rds:DescribeOrderableDBInstanceOptions",
+          "rds:DescribeEventSubscriptions",
+          "rds:DescribeGlobalClusters"
         ]
         Resource = "*"
       }
@@ -188,10 +208,10 @@ resource "aws_iam_role" "ec2_application_role" {
   }
 }
 
-# Policy for RDS access
-resource "aws_iam_policy" "rds_access_policy" {
-  name        = "rds-access-policy"
-  description = "Policy for EC2 to access RDS"
+# Policy for Aurora access
+resource "aws_iam_policy" "aurora_access_policy" {
+  name        = "aurora-access-policy"
+  description = "Policy for EC2 to access Aurora"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -201,6 +221,8 @@ resource "aws_iam_policy" "rds_access_policy" {
         "rds:Connect",
         "rds:DescribeDBInstances",
         "rds:DescribeDBClusters",
+        "rds:DescribeDBClusterEndpoints",
+        "rds:DescribeGlobalClusters",
         "rds-db:connect"
       ]
       Resource = "*"
@@ -232,9 +254,9 @@ resource "aws_iam_policy" "s3_access_policy" {
 }
 
 # Attach policies to EC2 role
-resource "aws_iam_role_policy_attachment" "ec2_rds_policy_attach" {
+resource "aws_iam_role_policy_attachment" "ec2_aurora_policy_attach" {
   role       = aws_iam_role.ec2_application_role.name
-  policy_arn = aws_iam_policy.rds_access_policy.arn
+  policy_arn = aws_iam_policy.aurora_access_policy.arn
 }
 
 resource "aws_iam_role_policy_attachment" "ec2_s3_policy_attach" {
@@ -387,6 +409,11 @@ resource "aws_iam_policy" "backup_policy" {
         "rds:CreateDBSnapshot",
         "rds:DeleteDBSnapshot",
         "rds:DescribeDBSnapshots",
+        "rds:CreateDBClusterSnapshot",
+        "rds:DeleteDBClusterSnapshot",
+        "rds:CopyDBClusterSnapshot",
+        "rds:DescribeDBClusterSnapshots",
+        "rds:RestoreDBClusterFromSnapshot",
         "rds:ListTagsForResource",
         "rds:AddTagsToResource",
         "s3:GetObject",
