@@ -13,9 +13,10 @@ provider "aws" {
     ec2             = "http://localhost:4566"
     rds             = "http://localhost:4566"
     iam             = "http://localhost:4566"
+    s3              = "http://localhost:4566"
+    elasticloadbalancing = "http://localhost:4566"
+    autoscaling     = "http://localhost:4566"
   }
-
-  endpoint_url = "http://localhost:4566"
 }
 
 resource "aws_key_pair" "my_key" {

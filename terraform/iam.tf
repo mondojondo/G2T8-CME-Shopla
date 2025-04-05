@@ -2,6 +2,40 @@
 # IAM Groups and Policies for Team Access
 #-----------------------------------------------
 
+# Data source to get the AWS account ID
+data "aws_caller_identity" "current" {}
+
+# EXAMPLE USERS
+# Placeholder for user creation and group membership
+
+resource "aws_iam_user" "example_admin" {
+  name = "admin1"
+}
+
+resource "aws_iam_user" "example_developer" {
+  name = "developer1"
+}
+
+resource "aws_iam_user" "example_operator" {
+  name = "operator1"
+}
+
+resource "aws_iam_user_group_membership" "admin_membership" {
+  user   = aws_iam_user.example_admin.name
+  groups = [aws_iam_group.administrators.name]
+}
+
+resource "aws_iam_user_group_membership" "developer_membership" {
+  user   = aws_iam_user.example_developer.name
+  groups = [aws_iam_group.developers.name]
+}
+
+resource "aws_iam_user_group_membership" "operator_membership" {
+  user   = aws_iam_user.example_operator.name
+  groups = [aws_iam_group.operators.name]
+}
+
+
 # Administrator Group
 resource "aws_iam_group" "administrators" {
   name = "administrators"
@@ -21,7 +55,7 @@ resource "aws_iam_group" "operators" {
 resource "aws_iam_policy" "administrator_policy" {
   name        = "administrator-policy"
   description = "Full access for administrators"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -36,13 +70,13 @@ resource "aws_iam_policy" "administrator_policy" {
 resource "aws_iam_policy" "developer_policy" {
   name        = "developer-policy"
   description = "EC2, S3, Aurora read/write access for developers"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "ec2:Describe*",
           "ec2:RunInstances",
           "ec2:StartInstances",
@@ -56,8 +90,8 @@ resource "aws_iam_policy" "developer_policy" {
         Resource = "*"
       },
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "s3:GetObject",
           "s3:PutObject",
           "s3:ListBucket",
@@ -68,8 +102,8 @@ resource "aws_iam_policy" "developer_policy" {
         Resource = "*"
       },
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "rds:Describe*",
           "rds:CreateDBInstance",
           "rds:ModifyDBInstance",
@@ -78,7 +112,7 @@ resource "aws_iam_policy" "developer_policy" {
           "rds:RestoreDBInstanceFromDBSnapshot",
           "rds:RebootDBInstance",
           "rds:CreateDBCluster",
-          "rds:ModifyDBCluster", 
+          "rds:ModifyDBCluster",
           "rds:DeleteDBCluster",
           "rds:AddTagsToResource",
           "rds:PromoteReadReplica",
@@ -102,13 +136,13 @@ resource "aws_iam_policy" "developer_policy" {
 resource "aws_iam_policy" "operator_policy" {
   name        = "operator-policy"
   description = "CloudWatch, EC2 read-only, Aurora read-only access for operators"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "cloudwatch:*",
           "logs:*",
           "events:*"
@@ -116,15 +150,15 @@ resource "aws_iam_policy" "operator_policy" {
         Resource = "*"
       },
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "ec2:Describe*"
         ]
         Resource = "*"
       },
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "rds:Describe*",
           "rds:DescribeDBClusters",
           "rds:DescribeDBClusterEndpoints",
@@ -155,51 +189,31 @@ resource "aws_iam_group_policy_attachment" "operator_policy_attach" {
   policy_arn = aws_iam_policy.operator_policy.arn
 }
 
-# Placeholder for user creation and group membership
-# Uncomment and modify as needed
-/*
-resource "aws_iam_user" "example_admin" {
-  name = "admin1"
-}
-
-resource "aws_iam_user" "example_developer" {
-  name = "developer1"
-}
-
-resource "aws_iam_user" "example_operator" {
-  name = "operator1"
-}
-
-resource "aws_iam_user_group_membership" "admin_membership" {
-  user = aws_iam_user.example_admin.name
-  groups = [aws_iam_group.administrators.name]
-}
-
-resource "aws_iam_user_group_membership" "developer_membership" {
-  user = aws_iam_user.example_developer.name
-  groups = [aws_iam_group.developers.name]
-}
-
-resource "aws_iam_user_group_membership" "operator_membership" {
-  user = aws_iam_user.example_operator.name
-  groups = [aws_iam_group.operators.name]
-}
-*/
-
 #-----------------------------------------------
 # EC2 Application Role with RDS and S3 access
 resource "aws_iam_role" "ec2_application_role" {
   name = "ec2-application-role"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ec2.amazonaws.com"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      },
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = [
+            "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+          ]
+        }
       }
-    }]
+    ]
   })
 
   tags = {
@@ -278,13 +292,24 @@ resource "aws_iam_role" "load_balancer_role" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "elasticloadbalancing.amazonaws.com"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "elasticloadbalancing.amazonaws.com"
+        }
+      },
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = [
+            "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+          ]
+        }
       }
-    }]
+    ]
   })
 
   tags = {
@@ -327,13 +352,24 @@ resource "aws_iam_role" "cloudwatch_monitoring_role" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "cloudwatch.amazonaws.com"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudwatch.amazonaws.com"
+        }
+      },
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = [
+            "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+          ]
+        }
       }
-    }]
+    ]
   })
 
   tags = {
@@ -381,13 +417,24 @@ resource "aws_iam_role" "backup_role" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "backup.amazonaws.com"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "backup.amazonaws.com"
+        }
+      },
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = [
+            "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+          ]
+        }
       }
-    }]
+    ]
   })
 
   tags = {
@@ -443,13 +490,24 @@ resource "aws_iam_role" "autoscaling_role" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "autoscaling.amazonaws.com"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "autoscaling.amazonaws.com"
+        }
+      },
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = [
+            "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+          ]
+        }
       }
-    }]
+    ]
   })
 
   tags = {
@@ -490,6 +548,74 @@ resource "aws_iam_policy" "autoscaling_policy" {
 resource "aws_iam_role_policy_attachment" "autoscaling_policy_attach" {
   role       = aws_iam_role.autoscaling_role.name
   policy_arn = aws_iam_policy.autoscaling_policy.arn
+}
+
+#-----------------------------------------------
+# IAM Policies for Role Assumption
+#-----------------------------------------------
+
+# Administrator assume role policy - can assume any role
+resource "aws_iam_policy" "admin_assume_role_policy" {
+  name        = "admin-assume-role-policy"
+  description = "Allows administrators to assume any role"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "sts:AssumeRole"
+      Resource = "*"
+    }]
+  })
+}
+
+# Developer assume role policy - can assume specific roles
+resource "aws_iam_policy" "developer_assume_role_policy" {
+  name        = "developer-assume-role-policy"
+  description = "Allows developers to assume EC2 application and CloudWatch monitoring roles"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = "sts:AssumeRole"
+      Resource = [
+        aws_iam_role.ec2_application_role.arn,
+        aws_iam_role.cloudwatch_monitoring_role.arn
+      ]
+    }]
+  })
+}
+
+# Operator assume role policy - can assume monitoring role only
+resource "aws_iam_policy" "operator_assume_role_policy" {
+  name        = "operator-assume-role-policy"
+  description = "Allows operators to assume CloudWatch monitoring role"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "sts:AssumeRole"
+      Resource = aws_iam_role.cloudwatch_monitoring_role.arn
+    }]
+  })
+}
+
+# Attach assume role policies to groups
+resource "aws_iam_group_policy_attachment" "admin_assume_role_attach" {
+  group      = aws_iam_group.administrators.name
+  policy_arn = aws_iam_policy.admin_assume_role_policy.arn
+}
+
+resource "aws_iam_group_policy_attachment" "developer_assume_role_attach" {
+  group      = aws_iam_group.developers.name
+  policy_arn = aws_iam_policy.developer_assume_role_policy.arn
+}
+
+resource "aws_iam_group_policy_attachment" "operator_assume_role_attach" {
+  group      = aws_iam_group.operators.name
+  policy_arn = aws_iam_policy.operator_assume_role_policy.arn
 }
 
 #-----------------------------------------------
