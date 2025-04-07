@@ -14,8 +14,8 @@ resource "aws_rds_cluster" "aurora_cluster" {
   engine                  = aws_rds_global_cluster.aurora_global_cluster.engine
   engine_version          = aws_rds_global_cluster.aurora_global_cluster.engine_version
   database_name           = aws_rds_global_cluster.aurora_global_cluster.database_name
-  master_username         = "shopla"
-  master_password         = "123456"
+  master_username         = var.db_username
+  master_password         = var.db_password
   port                    = 4510
 
   global_cluster_identifier = aws_rds_global_cluster.aurora_global_cluster.id

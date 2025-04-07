@@ -111,27 +111,6 @@ resource "aws_alb" "alb_sg" {
   subnets            = [aws_subnet.public_a_sg.id, aws_subnet.public_b_sg.id]
 }
 
-resource "aws_launch_template" "lt_sg" {
-  provider        = aws.sg
-  name_prefix     = "lt-sg"
-  image_id        = "ami-df5de72bdb3b"
-  instance_type   = "t2.micro"
-  user_data       = file("install.sh")
-}
-
-resource "aws_autoscaling_group" "asg_sg" {
-  provider            = aws.sg
-  desired_capacity    = 1
-  max_size            = 2
-  min_size            = 1
-  vpc_zone_identifier = [aws_subnet.private_a_sg.id, aws_subnet.private_b_sg.id]
-
-  launch_template {
-    id      = aws_launch_template.lt_sg.id
-    version = "$Latest"
-  }
-}
-
 resource "aws_cloudfront_distribution" "cf_sg" {
   provider = aws.sg
 
@@ -245,27 +224,6 @@ resource "aws_alb" "alb_th" {
   internal           = false
   load_balancer_type = "application"
   subnets            = [aws_subnet.public_a_th.id, aws_subnet.public_b_th.id]
-}
-
-resource "aws_launch_template" "lt_th" {
-  provider        = aws.th
-  name_prefix     = "lt-th"
-  image_id        = "ami-df5de72bdb3b"
-  instance_type   = "t2.micro"
-  user_data       = file("install.sh")
-}
-
-resource "aws_autoscaling_group" "asg_th" {
-  provider            = aws.th
-  desired_capacity    = 1
-  max_size            = 2
-  min_size            = 1
-  vpc_zone_identifier = [aws_subnet.private_a_th.id, aws_subnet.private_b_th.id]
-
-  launch_template {
-    id      = aws_launch_template.lt_th.id
-    version = "$Latest"
-  }
 }
 
 resource "aws_cloudfront_distribution" "cf_th" {
