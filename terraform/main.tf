@@ -39,7 +39,7 @@ provider "aws" {
   
   access_key                  = "mock_access_key"
   secret_key                  = "mock_secret_key"
-  region                      = "ap-east-1"
+  region                      = "ap-southeast-2"
 
   s3_use_path_style           = true
   skip_credentials_validation = true
@@ -65,11 +65,11 @@ resource "aws_vpc" "singapore" {
   }
 }
 
-resource "aws_vpc" "hongkong" {
+resource "aws_vpc" "thailand" {
   provider   = aws.ap_east_1
-  cidr_block = "10.1.0.0/16"  # Unique to ap-east-1
+  cidr_block = "10.1.0.0/16"  # Unique to ap-southeast-2
   tags = {
-    Name = "hongkong-vpc"
+    Name = "thailand-vpc"
   }
 }
 
@@ -101,17 +101,17 @@ module "ap_southeast_1" {
   vpc_cidr_block  = aws_vpc.singapore.cidr_block
 }
 
-# East Asia (Hong Kong) Region Resources
+# East Asia (Thailand) Region Resources
 module "ap_east_1" {
   source = "./region"
   providers = {
     aws = aws.ap_east_1 
   }
   
-  region_name     = "ap-east-1"
+  region_name     = "ap-southeast-2"
   key_name        = aws_key_pair.shared_key.key_name 
-  vpc_id          = aws_vpc.hongkong.id
-  vpc_cidr_block  = aws_vpc.hongkong.cidr_block
+  vpc_id          = aws_vpc.thailand.id
+  vpc_cidr_block  = aws_vpc.thailand.cidr_block
 }
 
 resource "aws_iam_role" "ec2_s3_role" {
