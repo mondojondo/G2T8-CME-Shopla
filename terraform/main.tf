@@ -1,260 +1,359 @@
-provider "aws" {
-
-  access_key                  = "mock_access_key"
-  secret_key                  = "mock_secret_key"
-  region                      = "us-east-1"
-
-  s3_use_path_style           = true
-  skip_credentials_validation = true
-  skip_metadata_api_check     = true
-  skip_requesting_account_id  = true
-
-  endpoints {
-    ec2             = "http://localhost:4566"
-    rds             = "http://localhost:4566"
-    iam             = "http://localhost:4566"
-    s3              = "http://localhost:4566"
-    elasticloadbalancing = "http://localhost:4566"
-    autoscaling     = "http://localhost:4566"
-  }
-}
-
-resource "aws_key_pair" "my_key" {
-  key_name   = "my-key"
-  public_key = file("~/.ssh/id_rsa.pub")
-}
-
-data "aws_vpc" "default" {
-  default = true
-}
-
-# Create a VPC
-resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16"
-  
-  tags = {
-    Name = "LocalStack VPC"
-  }
-}
-
-# Create public subnets
-resource "aws_subnet" "public_1" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.1.0/24"
-
-  tags = {
-    Name = "Public Subnet 1"
-  }
-}
-
-resource "aws_subnet" "public_2" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.2.0/24"
-
-  tags = {
-    Name = "Public Subnet 2"
-  }
-}
-
-# Create private subnets
-resource "aws_subnet" "private_1" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.3.0/24"
-
-  tags = {
-    Name = "Private Subnet 1"
-  }
-}
-
-resource "aws_subnet" "private_2" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.4.0/24"
-
-  tags = {
-    Name = "Private Subnet 2"
-  }
-}
-
-resource "aws_nat_gateway" "gw1" {
-  allocation_id = aws_eip.nat1.id
-  subnet_id     = aws_subnet.public_1.id
-}
-
-resource "aws_nat_gateway" "gw2" {
-  allocation_id = aws_eip.nat2.id
-  subnet_id     = aws_subnet.public_2.id
-}
-
-resource "aws_eip" "nat1" {
-  domain = "vpc"
-
-  tags = {
-    Name = "NAT Gateway EIP 1"
-  }
-}
-
-resource "aws_eip" "nat2" {
-  domain = "vpc"
-
-  tags = {
-    Name = "NAT Gateway EIP 2"
-  }
-}
-
-resource "aws_lb_target_group" "example" {
-  name     = "example-tg"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
-
-  health_check {
-    path                = "/"
-    healthy_threshold   = 2
-    unhealthy_threshold = 10
-  }
-}
-
-resource "aws_default_security_group" "default" {
-  vpc_id = data.aws_vpc.default.id
-
-  ingress {
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# Security Group for EC2 Instances
-resource "aws_security_group" "ec2_sg" {
-  name        = "ec2-private-sg"
-  description = "Allow internal traffic and NAT Gateway access"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"] # Adjust based on your VPC CIDR block
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_security_group" "rds_sg" {
-  name        = "rds-private-sg"
-  description = "Security group for RDS instance allowing EC2 access"
-
-  ingress {
-    from_port   = 4510
-    to_port     = 4510
-    protocol    = "tcp"
-      cidr_blocks = ["10.0.0.0/16"] # Allow traffic from any IP (adjust to your VPC CIDR)
-  }
-  
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "RDS-SG"
-  }
-}
-
-# Autoscaling is only able to mock ec2 instance but not an docker wc2 container
-resource "aws_launch_template" "ec2_template" {
-  name_prefix = "lt-"
-  
-  image_id = "ami-df5de72bdb3b"
-  instance_type = "t3.nano"
-  key_name = aws_key_pair.my_key.key_name
-  
-  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
-  
-  user_data = file("install.sh")
-  
-  tag_specifications {
-    resource_type = "instance"
-    tags = {
-      Name = "Shopla"
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
     }
   }
 }
 
-resource "aws_autoscaling_group" "example" {
-  name                = "example-asg"
-  desired_capacity    = 2
-  max_size            = 4
+provider "aws" {
+  alias      = "sg"
+  region     = "ap-southeast-1"
+  access_key = "mock"
+  secret_key = "mock"
+  endpoints {
+    ec2         = "http://localhost:4566"
+    rds         = "http://localhost:4566"
+    elbv2       = "http://localhost:4566"
+    s3          = "http://localhost:4566"
+    cloudfront  = "http://localhost:4566"
+    wafv2       = "http://localhost:4566"
+    route53     = "http://localhost:4566"
+    autoscaling = "http://localhost:4566"
+  }
+}
+
+provider "aws" {
+  alias      = "th"
+  region     = "ap-southeast-2"
+  access_key = "mock"
+  secret_key = "mock"
+  endpoints {
+    ec2         = "http://localhost:4567"
+    rds         = "http://localhost:4567"
+    elbv2       = "http://localhost:4567"
+    s3          = "http://localhost:4567"
+    cloudfront  = "http://localhost:4567"
+    wafv2       = "http://localhost:4567"
+    route53     = "http://localhost:4567"
+    autoscaling = "http://localhost:4567"
+  }
+}
+
+# #################################
+# # SINGAPORE REGION
+# #################################
+
+resource "aws_vpc" "vpc_sg" {
+  provider   = aws.sg
+  cidr_block = "10.1.0.0/16"
+}
+
+resource "aws_internet_gateway" "igw_sg" {
+  provider = aws.sg
+  vpc_id   = aws_vpc.vpc_sg.id
+}
+
+resource "aws_subnet" "public_a_sg" {
+  provider                = aws.sg
+  vpc_id                  = aws_vpc.vpc_sg.id
+  cidr_block              = "10.1.1.0/24"
+  availability_zone       = "ap-southeast-1a"
+  map_public_ip_on_launch = true
+}
+
+resource "aws_subnet" "public_b_sg" {
+  provider                = aws.sg
+  vpc_id                  = aws_vpc.vpc_sg.id
+  cidr_block              = "10.1.2.0/24"
+  availability_zone       = "ap-southeast-1b"
+  map_public_ip_on_launch = true
+}
+
+resource "aws_subnet" "private_a_sg" {
+  provider          = aws.sg
+  vpc_id            = aws_vpc.vpc_sg.id
+  cidr_block        = "10.1.11.0/24"
+  availability_zone = "ap-southeast-1a"
+}
+
+resource "aws_subnet" "private_b_sg" {
+  provider          = aws.sg
+  vpc_id            = aws_vpc.vpc_sg.id
+  cidr_block        = "10.1.12.0/24"
+  availability_zone = "ap-southeast-1b"
+}
+
+resource "aws_nat_gateway" "nat_sg" {
+  provider  = aws.sg
+  subnet_id = aws_subnet.public_a_sg.id
+  tags = {
+    Name = "nat-sg (mock)"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes         = [allocation_id]
+  }
+}
+
+resource "aws_s3_bucket" "bucket_sg" {
+  provider = aws.sg
+  bucket   = "bucket-sg"
+}
+
+resource "aws_alb" "alb_sg" {
+  provider           = aws.sg
+  name               = "alb-sg"
+  internal           = false
+  load_balancer_type = "application"
+  subnets            = [aws_subnet.public_a_sg.id, aws_subnet.public_b_sg.id]
+}
+
+resource "aws_launch_template" "lt_sg" {
+  provider        = aws.sg
+  name_prefix     = "lt-sg"
+  image_id        = "ami-df5de72bdb3b"
+  instance_type   = "t2.micro"
+  user_data       = file("install.sh")
+}
+
+resource "aws_autoscaling_group" "asg_sg" {
+  provider            = aws.sg
+  desired_capacity    = 1
+  max_size            = 2
   min_size            = 1
-  target_group_arns   = [aws_lb_target_group.example.arn]
-  vpc_zone_identifier = [aws_subnet.private_1.id, aws_subnet.private_2.id]
+  vpc_zone_identifier = [aws_subnet.private_a_sg.id, aws_subnet.private_b_sg.id]
 
   launch_template {
-    id      = aws_launch_template.ec2_template.id
+    id      = aws_launch_template.lt_sg.id
     version = "$Latest"
   }
+}
 
-  tag {
-    key                 = "Name"
-    value               = "Private-EC2"
-    propagate_at_launch = true
+resource "aws_cloudfront_distribution" "cf_sg" {
+  provider = aws.sg
+
+  origin {
+    domain_name = aws_s3_bucket.bucket_sg.bucket_regional_domain_name
+    origin_id   = "s3-sg"
+  }
+
+  enabled             = true
+  default_root_object = "index.html"
+
+  default_cache_behavior {
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "s3-sg"
+    viewer_protocol_policy = "allow-all"
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
   }
 }
 
-resource "aws_instance" "ec2_instance" {
-  ami                     = "ami-df5de72bdb3b"
-  instance_type           = "t3.nano"
-  key_name                = aws_key_pair.my_key.key_name # Reference the key pair
-  vpc_security_group_ids  = [aws_security_group.ec2_sg.id]
+resource "aws_wafv2_web_acl" "waf_sg" {
+  provider = aws.sg
+  name     = "waf-sg"
+  scope    = "CLOUDFRONT"
 
-  user_data               = file("install.sh")
+  default_action {
+    allow {}
+  }
 
-  tags = {
-    Name = "Shopla"
+  visibility_config {
+    cloudwatch_metrics_enabled = false
+    metric_name                = "waf-sg"
+    sampled_requests_enabled   = false
   }
 }
 
-resource "aws_rds_cluster" "aurora_cluster" {
-  cluster_identifier      = "aurora-cluster-shopla"
-  engine                  = "aurora-postgresql"
-  engine_version          = "13.8"
-  database_name           = "shopla"
-  master_username         = "shopla"
-  master_password         = "123456"
-  port                    = 4510
-  vpc_security_group_ids  = [aws_security_group.rds_sg.id]
-  skip_final_snapshot     = true
+#################################
+# THAILAND REGION
+#################################
 
+resource "aws_vpc" "vpc_th" {
+  provider   = aws.th
+  cidr_block = "10.2.0.0/16"
+}
+
+resource "aws_internet_gateway" "igw_th" {
+  provider = aws.th
+  vpc_id   = aws_vpc.vpc_th.id
+}
+
+resource "aws_subnet" "public_a_th" {
+  provider                = aws.th
+  vpc_id                  = aws_vpc.vpc_th.id
+  cidr_block              = "10.2.1.0/24"
+  availability_zone       = "ap-southeast-2a"
+  map_public_ip_on_launch = true
+}
+
+resource "aws_subnet" "public_b_th" {
+  provider                = aws.th
+  vpc_id                  = aws_vpc.vpc_th.id
+  cidr_block              = "10.2.2.0/24"
+  availability_zone       = "ap-southeast-2b"
+  map_public_ip_on_launch = true
+}
+
+resource "aws_subnet" "private_a_th" {
+  provider          = aws.th
+  vpc_id            = aws_vpc.vpc_th.id
+  cidr_block        = "10.2.11.0/24"
+  availability_zone = "ap-southeast-2a"
+}
+
+resource "aws_subnet" "private_b_th" {
+  provider          = aws.th
+  vpc_id            = aws_vpc.vpc_th.id
+  cidr_block        = "10.2.12.0/24"
+  availability_zone = "ap-southeast-2b"
+}
+
+resource "aws_nat_gateway" "nat_th" {
+  provider  = aws.th
+  subnet_id = aws_subnet.public_a_th.id
   tags = {
-    Name = "ShoplaDB"
+    Name = "nat-th (mock)"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes         = [allocation_id]
   }
 }
 
-resource "aws_rds_cluster_instance" "aurora_instance" {
-  count               = 1
-  identifier          = "aurora-instance-shopla-${count.index}"
-  cluster_identifier  = aws_rds_cluster.aurora_cluster.id
-  instance_class      = "db.t3.medium"
-  engine              = aws_rds_cluster.aurora_cluster.engine
-  engine_version      = aws_rds_cluster.aurora_cluster.engine_version
-  publicly_accessible = true
+resource "aws_s3_bucket" "bucket_th" {
+  provider = aws.th
+  bucket   = "bucket-th"
+}
 
-  tags = {
-    Name = "ShoplaDB-Instance"
+resource "aws_alb" "alb_th" {
+  provider           = aws.th
+  name               = "alb-th"
+  internal           = false
+  load_balancer_type = "application"
+  subnets            = [aws_subnet.public_a_th.id, aws_subnet.public_b_th.id]
+}
+
+resource "aws_launch_template" "lt_th" {
+  provider        = aws.th
+  name_prefix     = "lt-th"
+  image_id        = "ami-df5de72bdb3b"
+  instance_type   = "t2.micro"
+  user_data       = file("install.sh")
+}
+
+resource "aws_autoscaling_group" "asg_th" {
+  provider            = aws.th
+  desired_capacity    = 1
+  max_size            = 2
+  min_size            = 1
+  vpc_zone_identifier = [aws_subnet.private_a_th.id, aws_subnet.private_b_th.id]
+
+  launch_template {
+    id      = aws_launch_template.lt_th.id
+    version = "$Latest"
+  }
+}
+
+resource "aws_cloudfront_distribution" "cf_th" {
+  provider = aws.th
+
+  origin {
+    domain_name = aws_s3_bucket.bucket_th.bucket_regional_domain_name
+    origin_id   = "s3-th"
+  }
+
+  enabled             = true
+  default_root_object = "index.html"
+
+  default_cache_behavior {
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "s3-th"
+    viewer_protocol_policy = "allow-all"
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+}
+
+resource "aws_wafv2_web_acl" "waf_th" {
+  provider = aws.th
+  name     = "waf-th"
+  scope    = "CLOUDFRONT"
+
+  default_action {
+    allow {}
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = false
+    metric_name                = "waf-th"
+    sampled_requests_enabled   = false
+  }
+}
+
+#################################
+# ROUTE 53 (shared)
+#################################
+
+resource "aws_route53_zone" "root" {
+  provider = aws.sg
+  name     = "shopla.com"
+}
+
+resource "aws_route53_record" "latency_sg" {
+  provider       = aws.sg
+  zone_id        = aws_route53_zone.root.zone_id
+  name           = "app.shopla.com"
+  type           = "A"
+  set_identifier = "sg"
+
+  alias {
+    name                   = aws_cloudfront_distribution.cf_sg.domain_name
+    zone_id                = aws_cloudfront_distribution.cf_sg.hosted_zone_id
+    evaluate_target_health = false
+  }
+
+  latency_routing_policy {
+    region = "ap-southeast-1"
+  }
+}
+
+resource "aws_route53_record" "latency_th" {
+  provider       = aws.sg
+  zone_id        = aws_route53_zone.root.zone_id
+  name           = "app.shopla.com"
+  type           = "A"
+  set_identifier = "th"
+
+  alias {
+    name                   = aws_cloudfront_distribution.cf_th.domain_name
+    zone_id                = aws_cloudfront_distribution.cf_th.hosted_zone_id
+    evaluate_target_health = false
+  }
+
+  latency_routing_policy {
+    region = "ap-southeast-2"
   }
 }
