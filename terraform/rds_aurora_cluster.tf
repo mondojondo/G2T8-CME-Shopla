@@ -19,6 +19,8 @@ resource "aws_rds_cluster" "aurora_cluster" {
   port                    = 4510
 
   global_cluster_identifier = aws_rds_global_cluster.aurora_global_cluster.id
+
+  vpc_security_group_ids = [aws_security_group.aurora_securitygroup_sg.id]
 }
 
 # Primary Aurora Cluster Instances
@@ -43,6 +45,8 @@ resource "aws_rds_cluster" "secondary_aurora_cluster" {
   skip_final_snapshot   = aws_rds_cluster.aurora_cluster.skip_final_snapshot
 
   global_cluster_identifier = aws_rds_global_cluster.aurora_global_cluster.id
+
+  vpc_security_group_ids = [aws_security_group.aurora_securitygroup_th.id]
 
   lifecycle {
     ignore_changes = [
