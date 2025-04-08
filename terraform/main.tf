@@ -50,11 +50,6 @@ resource "aws_vpc" "vpc_sg" {
   cidr_block = "10.1.0.0/16"
 }
 
-resource "aws_internet_gateway" "igw_sg" {
-  provider = aws.sg
-  vpc_id   = aws_vpc.vpc_sg.id
-}
-
 resource "aws_subnet" "public_a_sg" {
   provider                = aws.sg
   vpc_id                  = aws_vpc.vpc_sg.id
@@ -85,6 +80,34 @@ resource "aws_subnet" "private_b_sg" {
   availability_zone = "ap-southeast-1b"
 }
 
+resource "aws_internet_gateway" "igw_sg" {
+  provider = aws.sg
+  vpc_id   = aws_vpc.vpc_sg.id
+}
+
+# Create a public Route Table that uses the IGW for internet traffic
+resource "aws_route_table" "route_table_sg" {
+  vpc_id = aws_vpc.vpc_sg.id
+
+  route {
+    cidr_block = "0.0.0.0/0"               
+    gateway_id = aws_internet_gateway.igw_sg.id
+  }
+}
+
+# Associate the Route Table with public subnets
+resource "aws_route_table_association" "public_a_assoc_sg" {
+  provider       = aws.sg
+  subnet_id      = aws_subnet.public_a_sg.id
+  route_table_id = aws_route_table.route_table_sg.id
+}
+
+resource "aws_route_table_association" "public_b_assoc_sg" {
+  provider       = aws.sg
+  subnet_id      = aws_subnet.public_b_sg.id
+  route_table_id = aws_route_table.route_table_sg.id
+}
+
 resource "aws_nat_gateway" "nat_sg" {
   provider  = aws.sg
   subnet_id = aws_subnet.public_a_sg.id
@@ -98,9 +121,26 @@ resource "aws_nat_gateway" "nat_sg" {
   }
 }
 
-resource "aws_s3_bucket" "bucket_sg" {
+resource "aws_route_table" "private_rt_sg" {
   provider = aws.sg
-  bucket   = "bucket-sg"
+  vpc_id   = aws_vpc.vpc_sg.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat_sg.id
+  }
+}
+
+resource "aws_route_table_association" "private_assoc_sg_a" {
+  provider       = aws.sg
+  subnet_id      = aws_subnet.private_a_sg.id
+  route_table_id = aws_route_table.private_rt_sg.id
+}
+
+resource "aws_route_table_association" "private_assoc_sg_b" {
+  provider       = aws.sg
+  subnet_id      = aws_subnet.private_b_sg.id
+  route_table_id = aws_route_table.private_rt_sg.id
 }
 
 resource "aws_alb" "alb_sg" {
@@ -115,7 +155,7 @@ resource "aws_cloudfront_distribution" "cf_sg" {
   provider = aws.sg
 
   origin {
-    domain_name = aws_s3_bucket.bucket_sg.bucket_regional_domain_name
+    domain_name = aws_s3_bucket.shared_bucket.bucket_regional_domain_name
     origin_id   = "s3-sg"
   }
 
@@ -165,11 +205,6 @@ resource "aws_vpc" "vpc_th" {
   cidr_block = "10.2.0.0/16"
 }
 
-resource "aws_internet_gateway" "igw_th" {
-  provider = aws.th
-  vpc_id   = aws_vpc.vpc_th.id
-}
-
 resource "aws_subnet" "public_a_th" {
   provider                = aws.th
   vpc_id                  = aws_vpc.vpc_th.id
@@ -200,6 +235,11 @@ resource "aws_subnet" "private_b_th" {
   availability_zone = "ap-southeast-7b"
 }
 
+resource "aws_internet_gateway" "igw_th" {
+  provider = aws.th
+  vpc_id   = aws_vpc.vpc_th.id
+}
+
 resource "aws_nat_gateway" "nat_th" {
   provider  = aws.th
   subnet_id = aws_subnet.public_a_th.id
@@ -213,9 +253,26 @@ resource "aws_nat_gateway" "nat_th" {
   }
 }
 
-resource "aws_s3_bucket" "bucket_th" {
+resource "aws_route_table" "private_rt_th" {
   provider = aws.th
-  bucket   = "bucket-th"
+  vpc_id   = aws_vpc.vpc_th.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat_th.id
+  }
+}
+
+resource "aws_route_table_association" "private_assoc_th_a" {
+  provider       = aws.th
+  subnet_id      = aws_subnet.private_a_th.id
+  route_table_id = aws_route_table.private_rt_th.id
+}
+
+resource "aws_route_table_association" "private_assoc_th_b" {
+  provider       = aws.th
+  subnet_id      = aws_subnet.private_b_th.id
+  route_table_id = aws_route_table.private_rt_th.id
 }
 
 resource "aws_alb" "alb_th" {
@@ -230,7 +287,7 @@ resource "aws_cloudfront_distribution" "cf_th" {
   provider = aws.th
 
   origin {
-    domain_name = aws_s3_bucket.bucket_th.bucket_regional_domain_name
+    domain_name = aws_s3_bucket.shared_bucket.bucket_regional_domain_name
     origin_id   = "s3-th"
   }
 
@@ -268,6 +325,20 @@ resource "aws_wafv2_web_acl" "waf_th" {
     cloudwatch_metrics_enabled = false
     metric_name                = "waf-th"
     sampled_requests_enabled   = false
+  }
+}
+
+#################################
+# S3 (shared)
+#################################
+
+resource "aws_s3_bucket" "shared_bucket" {
+  bucket = "multi-region-shared-bucket"  
+  provider = aws.sg
+
+  tags = {
+    Name   = "Shared App Bucket"
+    Region = "global"
   }
 }
 
