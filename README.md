@@ -19,7 +19,7 @@ Appy terraform config to spin up EC2 & RDS instance
 1. locate directory: /G2T8-CME-Shopla/terraform
 2. tflocal init
 3. tflocal plan
-4. tflocal apply --auto-approve
+4. tflocal apply --auto-approve -var-file="secret.tfvars"
 
 Access shopla on browser
 1. http://localhost:3000
