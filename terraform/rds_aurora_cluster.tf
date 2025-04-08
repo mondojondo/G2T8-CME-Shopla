@@ -39,7 +39,7 @@ resource "aws_rds_cluster_instance" "aurora_instances" {
 resource "aws_rds_cluster" "secondary_aurora_cluster" {
   provider              = aws.th
   cluster_identifier    = "aurora-cluster-shopla-secondary"
-  availability_zones    = ["ap-southeast-2a", "ap-southeast-2b"]
+  availability_zones    = ["ap-southeast-7a", "ap-southeast-7b"]
   engine                = aws_rds_global_cluster.aurora_global_cluster.engine
   engine_version        = aws_rds_global_cluster.aurora_global_cluster.engine_version
   skip_final_snapshot   = aws_rds_cluster.aurora_cluster.skip_final_snapshot
