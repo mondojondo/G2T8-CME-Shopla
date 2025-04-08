@@ -174,7 +174,7 @@ resource "aws_subnet" "public_a_th" {
   provider                = aws.th
   vpc_id                  = aws_vpc.vpc_th.id
   cidr_block              = "10.2.1.0/24"
-  availability_zone       = "ap-southeast-2a"
+  availability_zone       = "ap-southeast-7a"
   map_public_ip_on_launch = true
 }
 
@@ -182,7 +182,7 @@ resource "aws_subnet" "public_b_th" {
   provider                = aws.th
   vpc_id                  = aws_vpc.vpc_th.id
   cidr_block              = "10.2.2.0/24"
-  availability_zone       = "ap-southeast-2b"
+  availability_zone       = "ap-southeast-7b"
   map_public_ip_on_launch = true
 }
 
@@ -190,14 +190,14 @@ resource "aws_subnet" "private_a_th" {
   provider          = aws.th
   vpc_id            = aws_vpc.vpc_th.id
   cidr_block        = "10.2.11.0/24"
-  availability_zone = "ap-southeast-2a"
+  availability_zone = "ap-southeast-7a"
 }
 
 resource "aws_subnet" "private_b_th" {
   provider          = aws.th
   vpc_id            = aws_vpc.vpc_th.id
   cidr_block        = "10.2.12.0/24"
-  availability_zone = "ap-southeast-2b"
+  availability_zone = "ap-southeast-7b"
 }
 
 resource "aws_nat_gateway" "nat_th" {

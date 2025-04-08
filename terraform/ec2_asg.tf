@@ -46,7 +46,7 @@ resource "aws_autoscaling_group" "asg_sg_b" {
 
   min_size             = 1 # Ensures at least one instance per AZ.
   desired_capacity     = 1 # Starts with one instance in each AZ.
-  max_size             = 24 # Allows scaling up to four instances.
+  max_size             = 24 # Allows scaling up to 24 instances.
 }
 
 resource "aws_launch_template" "lt_th_a" {
