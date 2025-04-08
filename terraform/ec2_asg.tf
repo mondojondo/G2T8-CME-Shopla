@@ -5,6 +5,8 @@ resource "aws_launch_template" "lt_sg_a" {
   image_id        = "ami-df5de72bdb3b"
   instance_type   = "t3.medium"
   user_data       = file("install.sh")
+
+  vpc_security_group_ids = [aws_security_group.asg_securitygroup_sg.id] #specifies the set of security group IDs that each newly-created EC2 instance must be associated with
 }
 
 resource "aws_autoscaling_group" "asg_sg_a" {
@@ -28,6 +30,8 @@ resource "aws_launch_template" "lt_sg_b" {
   image_id        = "ami-df5de72bdb3b"
   instance_type   = "t3.medium"
   user_data       = file("install.sh")
+
+  vpc_security_group_ids = [aws_security_group.asg_securitygroup_sg.id] 
 }
 
 resource "aws_autoscaling_group" "asg_sg_b" {
@@ -51,6 +55,8 @@ resource "aws_launch_template" "lt_th_a" {
   image_id        = "ami-df5de72bdb3b"
   instance_type   = "t3.medium"
   user_data       = file("install.sh")
+
+  vpc_security_group_ids = [aws_security_group.asg_securitygroup_th.id]
 }
 
 
@@ -75,8 +81,9 @@ resource "aws_launch_template" "lt_th_b" {
   image_id        = "ami-df5de72bdb3b"
   instance_type   = "t3.medium"
   user_data       = file("install.sh")
-}
 
+  vpc_security_group_ids = [aws_security_group.asg_securitygroup_th.id]
+}
 
 resource "aws_autoscaling_group" "asg_th_b" {
   provider            = aws.th
