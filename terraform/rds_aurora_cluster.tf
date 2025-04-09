@@ -42,7 +42,6 @@ resource "aws_rds_cluster" "secondary_aurora_cluster" {
   availability_zones    = ["ap-southeast-7a", "ap-southeast-7b"]
   engine                = aws_rds_global_cluster.aurora_global_cluster.engine
   engine_version        = aws_rds_global_cluster.aurora_global_cluster.engine_version
-  skip_final_snapshot   = aws_rds_cluster.aurora_cluster.skip_final_snapshot
 
   global_cluster_identifier = aws_rds_global_cluster.aurora_global_cluster.id
 
@@ -50,7 +49,7 @@ resource "aws_rds_cluster" "secondary_aurora_cluster" {
 
   lifecycle {
     ignore_changes = [
-      replication_source_identifier
+      replication_source_identifier # disable changes to replication source attribute
     ]
   }
 

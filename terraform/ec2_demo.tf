@@ -5,14 +5,9 @@ resource "aws_key_pair" "my_key" {
 
 resource "aws_instance" "ec2_instance" {
   ami                     = "ami-df5de72bdb3b"
-  instance_type           = "t3.nano"
+  instance_type           = "t3.medium"
   key_name                = aws_key_pair.my_key.key_name # Reference the key pair
-
   user_data               = file("install.sh")
-
-  tags = {
-    Name = "Shopla"
-  }
 }
 
 # ============================================================
