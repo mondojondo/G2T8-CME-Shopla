@@ -87,6 +87,7 @@ resource "aws_internet_gateway" "igw_sg" {
 
 # Create a public Route Table that uses the IGW for internet traffic
 resource "aws_route_table" "route_table_sg" {
+  provider = aws.sg
   vpc_id = aws_vpc.vpc_sg.id
 
   route {
