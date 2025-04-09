@@ -1,4 +1,7 @@
 {
+    "system": {
+        "theme": "eve"
+    },
     "themeConfig": {
         "logo": {
             "alt": "shopla logo",
