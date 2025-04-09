@@ -26,7 +26,7 @@ provider "aws" {
 
 provider "aws" {
   alias      = "th"
-  region     = "ap-southeast-2"
+  region     = "ap-southeast-7"
   access_key = "mock"
   secret_key = "mock"
   endpoints {
@@ -384,6 +384,6 @@ resource "aws_route53_record" "latency_th" {
   }
 
   latency_routing_policy {
-    region = "ap-southeast-2"
+    region = "ap-southeast-7"
   }
 }
